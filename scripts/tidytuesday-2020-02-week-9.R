@@ -1,17 +1,9 @@
+# TidyTuesday Week 9
+# Author: Santiago Muñoz Moldes
+# Date: March 2nd, 2020
 
-# TidyTuesdat Week 9
-
-# The data this week comes from The Wallstreet Journal. They recently published 
-# an article around 46,412 schools across 32 US States.
-# 
-# "This repository contains immunization rate data for schools across the U.S.,
-# as compiled by The Wall Street Journal. The dataset includes the overall and 
-# MMR-specific vaccination rates for 46,412 schools in 32 states. As used in 
-# “What’s the Measles Vaccination Rate at Your Child’s School?“.
-# 
-# Vaccination rates are for the 2017-18 school year for Colorado, Connecticut, 
-# Minnesota, Montana, New Jersey, New York, North Dakota, Pennsylvania, South 
-# Dakota, Utah and Washington. Rates for other states are 2018-19."
+# Dataset information: https://github.com/rfordatascience/tidytuesday/blob/master/data/2020/2020-02-25/readme.md
+# Dataset source: https://github.com/WSJ/measles-data
 
 library(tidyverse)
 library(ggtext)
@@ -19,18 +11,14 @@ library(ggtext)
 #load the dataset
 measles <- read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-02-25/measles.csv',
                     na = c("-1", "null", "NA"))
-#comments: dataset looks quite dirty
-#comments: missing data appears to be coded as either `-1`, `null` and `NA`
-#comments: `xrel` column appears to have both logical and numbers
-#comments: `overall` also has problems
-#comments: not clear whether some schools are repeated or not
+
+# DATA WRANGLING
 
 #some schools have repeated data under different locations
-#remove repetitions
 d1 <- measles %>% 
   distinct(name, city, state, county, enroll, mmr, overall, type, xrel, xmed, xper)
 
-#see how many schools for each type
+#see how many schools there are for each type
 # d1 %>% group_by(type) %>% summarise(n = n())
 # A tibble: 7 x 2
 # type             n
@@ -43,13 +31,18 @@ d1 <- measles %>%
 # 6 Public       12539
 # 7 NA           27174
 
+#summarise the mmr vaccination rate for each school type
 d2 <- d1 %>%
   group_by(type) %>%
   summarise(mmr_average = round(mean(mmr, na.rm = T))) 
 
-# create a grid of "100 people" per school type
+# create a grid of 10x10
 grid <- expand.grid(persons_x = 1:10, persons_y = 1:10)
 
+#expand each school type with the grid
+#this step removes the mmr_average column, so I add it back again
+#to show vaccination rates on the grid, I set values as either 1 or 0
+#I also remove some of the school types (BOCES and Nonpublic)
 d3 <- d2 %>%
   expand(type, grid) %>%
   left_join(d2, by = "type") %>%  #re-add the lost column
@@ -57,14 +50,16 @@ d3 <- d2 %>%
   mutate(vaccinated = c(rep(1, each=mmr_average), rep(0, each=(100-mmr_average)))) %>%
   filter(!type %in% c('BOCES', "Nonpublic", NA))  # remove some school types
 
-#colors
+# VISUALISATION
+
+#set some colors
 col_unvacc <- '#D8CABF'
 col_vacc <- '#2F302A'
 
 #plot
 p <- d3 %>%
   ggplot(aes(persons_x, persons_y, fill=factor(vaccinated))) + 
-  geom_tile(colour='white') +
+  geom_tile(colour='white') +  #this sets the borde color between tiles
   facet_wrap(type~.) +
   theme_minimal() +
   scale_fill_manual(values=c(col_unvacc, col_vacc)) + 
@@ -77,7 +72,7 @@ p <- d3 %>%
     caption = 'Source: <i>The Wall Street Journal.</i><br/> Vaccination rates were 
     obtained from 12.539 public, 4.910 private,<br/> 1.302 kindergarten and 273 
     charter schools. 27.174 other schools<br/>were missing school type information') +
-  # Adjust text placement, text size, grid lines, etc.
+  # Customize text size, grid lines, etc.
   theme_minimal() + 
   theme(
     text=element_text(family='Helvetica Neue'),
@@ -101,7 +96,6 @@ p <- d3 %>%
 p
 
 filename <- '/Users/santiago/Dropbox/MyCode/tidytuesday/imgs/tidytuesday-2020-02-week-9.png'
-
 ggsave(filename, 
        plot = p, 
        scale = 1, 
@@ -109,8 +103,3 @@ ggsave(filename,
        height = 10, 
        units = 'cm', 
        dpi = 600)
-
-
-
-
-
